@@ -1,11 +1,11 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import solve_ivp
-import matplotlib.pyplot as plt
 
 # Simulation Constants
 G = 6.67408e-11  # m^3/kg/s^2
 G_earth = 9.81  # m/s^2
-t_total = 1000  # s
+t_total = 2000  # s
 r_moon = 1737e3  # m
 m_moon = 7.34767309e22  # kg
 mu = G * m_moon  # m^3/s^2
@@ -42,7 +42,7 @@ class Lander:
 
     def controller(self, S):
         r, dr, theta, dtheta, m = S
-        if theta > 0.1:
+        if theta < 0.3762:
             T = self.T_max
             alpha = np.pi
         else:
@@ -53,17 +53,14 @@ class Lander:
 
     def dynamics(self, t, S):
         r, dr, theta, dtheta, m = S
-
         T, alpha = self.controller(S)
 
         # Radial
         dr = dr
         ddr = T / m * np.cos(alpha) - mu / r**2 + r * dtheta**2
-
         # Angular
         dtheta = dtheta
         ddtheta = 1 / r * (T / m * np.sin(alpha) - 2 * dr * dtheta)
-
         # Mass
         dm = -T / (G_earth * self.Isp)
 
@@ -94,6 +91,10 @@ sol = Apollo.propagate(Apollo.S, t_total)
 x = sol.y[0] * np.cos(sol.y[2])
 y = sol.y[0] * np.sin(sol.y[2])
 
+# Target Transform
+x_target = target_r * np.cos(target_theta)
+y_target = target_r * np.sin(target_theta)
+
 # Moon Transform
 theta_circle = np.linspace(0, 2 * np.pi, 1000)
 x_moon = r_moon * np.cos(theta_circle)
@@ -104,8 +105,9 @@ fig, axs = plt.subplots(2, 2, figsize=(14, 8))
 # The trajectory
 axs[0, 0].plot(x, y, label="Apollo")
 axs[0, 0].plot(x_moon, y_moon, "gray", label="Moon Surface")
-axs[0, 0].set_xlim(min(x) - 10_000, max(x) + 10_000)
-axs[0, 0].set_ylim(min(y) - 10_000, max(y) + 10_000)
+axs[0, 0].scatter(x_target, y_target, color="red", label="Target")
+axs[0, 0].set_xlim(x_target - 10_000, x_target + 10_000)
+axs[0, 0].set_ylim(y_target - 10_000, y_target + 10_000)
 axs[0, 0].set_xlabel("x (m)")
 axs[0, 0].set_ylabel("y (m)")
 axs[0, 0].set_title("Apollo Trajectory")
