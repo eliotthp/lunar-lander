@@ -1,7 +1,9 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
-import guidance  # Importing your toolset
+import guidance  # Importing the guidance module
+import visualization  # Importing the visualization module
+
 
 # --- Constants & Environment ---
 G = 6.67408e-11  # m^3/kg/s^2
@@ -20,75 +22,76 @@ m_empty = 4_280  # kg
 Isp = 311  # s
 T_max = 45_000  # N
 
-S0 = [r0, dr0, theta0, dtheta0, m0]
+# Target Conditions
+target_r = r_moon  # m
+target_dr = 0  # m/s
+target_theta = theta0 - 480_000 / r_moon  # rad
+target_dtheta = 0  # rad/s
 
-guidance_timeline = {
-    0: [0.10, 93.0],
-    26: [0.95, 87.0],
-    176: [0.95, 71.0],
-    258: [0.95, 72.0],
-    384: [0.95, 73.0],
-    402: [0.95, 70.7],
-    506: [0.3835, -11.0],
-    606: [0.20, 00.0],
-    714: [0.00, 00.0],
-}
+S0 = [r0, dr0, theta0, dtheta0, m0]
+alpha_log = []
 
 
 # --- Functions ---
 def controller(t, S):
+    # Navigation
     r_act, dr_act, theta_act, dtheta_act, m = S
 
-    # 1. Determine "Time to Go"
-    tf_total = 580  # Optimal time
+    # Determine time remaining
+    tf_total = 580
     t_go = max(0.01, tf_total - t)
 
-    # 2. Get Polynomial 'Demands'
+    # Guidance
     _, _, ddr_req = guidance.poly_guidance(t, [r0, target_r, dr0, target_dr], tf_total)
     _, _, ddtheta_req = guidance.poly_guidance(
         t, [theta0, target_theta, dtheta0, target_dtheta], tf_total
     )
 
-    # 3. Convert Demands to Physics
+    # Control
     Fr = m * (ddr_req + mu / r_act**2 - r_act * dtheta_act**2)
     Ft = m * (r_act * ddtheta_req + 2 * dr_act * dtheta_act)
 
     thrust_req = np.sqrt(Fr**2 + Ft**2)
-    alpha_req = np.arctan2(Ft, Fr)  # Returns angle in radians
+    alpha_req = np.arctan2(Ft, Fr)
 
-    # 4. Apply Hardware Limits
+    # Apply Limits
     thrust_pct = np.clip(thrust_req / T_max, 0, 1)
+
+    if r_act <= r_moon + 0.1:
+        thrust_pct = 0
 
     return thrust_pct, np.degrees(alpha_req)
 
 
 def dynamics(t, S):
     r, dr, theta, dtheta, m = S
-    thrust_pct, alpha_deg = controller(t, S)
 
-    # 1. Controller Logic (Functional)
+    thrust_pct, alpha_deg = controller(t, S)
+    alpha_log.append(np.degrees(alpha_deg))
+
+    # Controller Logic (Functional)
     alpha = np.radians(alpha_deg)
     T = T_max * thrust_pct
 
-    # 2. Fuel Guardrail
+    # Fuel Guardrail
     if m <= m_empty:
         T, dm = 0, 0
     else:
         dm = -T / (G_earth * Isp)
 
-    # 3. Equations of Motion
+    # Equations of Motion
     ddr = (T / m) * np.cos(alpha) - mu / r**2 + r * dtheta**2
     ddtheta = (1 / r) * ((T / m) * np.sin(alpha) - 2 * dr * dtheta)
 
     return [dr, ddr, dtheta, ddtheta, dm]
 
 
+# --- Simulation ---
 def surface_contact(t, S):
     return S[0] - r_moon
 
 
 surface_contact.terminal = True
-surface_contact.direction = -1
 
 sol = solve_ivp(
     lambda t, S: dynamics(t, S),
@@ -96,89 +99,22 @@ sol = solve_ivp(
     S0,
     method="RK45",
     events=[surface_contact],
+    max_step=1,
 )
 
-# --- Choose time ---
-check_time = 606
-idx = np.argmin(np.abs(sol.t - check_time))
-# --- Quick Maths ---
-v_tangential = sol.y[0][idx] * sol.y[3][idx]
-v_inertial = np.sqrt(sol.y[1][idx] ** 2 + v_tangential**2)
-# --- Print Stats ---
-print(f"Time: {sol.t[idx]:.2f} s")
-print(f"Altitude: {sol.y[0][idx] - r_moon:.2f} m")
-print(f"Radial Velocity: {sol.y[1][idx]:.2f} m/s")
-print(f"Tangential Velocity: {v_tangential:.2f} m/s")
-print(f"Inertial Velocity: {v_inertial:.2f} m/s")
+# --- Results ---
+mission_params = {
+    "r_moon": r_moon,
+    "target_theta": target_theta,
+    "target_r": target_r,
+    "theta0": theta0,
+    "m0": m0,
+    "m_empty": m_empty,
+    "Isp": Isp,
+    "G_earth": G_earth,
+}
 
-# Target Conditions
-target_r = r_moon  # m
-target_dr = 0  # m/s
-target_theta = theta0 - 480_000 / r_moon  # rad
-target_dtheta = 0  # rad/s
-
-# Final Conditions
-final_r = sol.y[0][-1]
-final_dr = sol.y[1][-1]
-final_theta = sol.y[2][-1]
-final_dtheta = sol.y[3][-1]
-final_m = sol.y[4][-1]
-
-# Final Stats
-miss_distance = (sol.y[2][-1] - target_theta) * r_moon
-print("--- MISSION DATA ---")
-print(
-    f"Impact Velocity: {np.sqrt(final_dr**2 + (final_dtheta * final_r) ** 2):.2f} m/s"
-)
-print(f"Miss Distance: {miss_distance / 1000:.2f} km")
-print(f"Remaining Propellant: {(final_m - m_empty):.2f} kg")
-
-# Convert rad to deg
-sol.y[2] *= 180 / np.pi
-theta0 *= 180 / np.pi
-target_theta *= 180 / np.pi
-final_theta *= 180 / np.pi
-
-# Plotting
-fig, axs = plt.subplots(2, 2, figsize=(14, 8))
-
-# The trajectory
-axs[0, 0].plot(sol.y[2], sol.y[0] - r_moon, label="Eagle Path")
-axs[0, 0].axhline(y=0, color="gray", linestyle="--", label="Moon Surface")
-axs[0, 0].scatter(target_theta, target_r - r_moon, color="red", label="Target")
-axs[0, 0].scatter(
-    final_theta, final_r - r_moon, color="black", marker="x", label="Impact"
-)
-axs[0, 0].set_xlim(theta0, target_theta - 1)
-axs[0, 0].set_ylim(-500, max(sol.y[0] - r_moon) + 500)
-axs[0, 0].set_xlabel("Theta (°)")
-axs[0, 0].set_ylabel("Radius (m)")
-axs[0, 0].set_title("Radius vs. Theta (Descending Orbit)")
-axs[0, 0].legend()
-axs[0, 0].grid(True)
-
-# Altitude vs. Time
-axs[0, 1].plot(sol.t, sol.y[0] - r_moon)
-axs[0, 1].set_ylim(-500, max(sol.y[0] - r_moon) + 500)
-axs[0, 1].set_xlabel("Time (s)")
-axs[0, 1].set_ylabel("Altitude (m)")
-axs[0, 1].set_title("Altitude vs. Time")
-axs[0, 1].grid(True)
-
-# Velocity Components
-axs[1, 0].plot(sol.t, sol.y[1], label="Radial")
-axs[1, 0].plot(sol.t, -(sol.y[3] * sol.y[0]), label="Angular")
-axs[1, 0].set_xlabel("Time (s)")
-axs[1, 0].set_ylabel("Velocity (m/s)")
-axs[1, 0].set_title("Velocity Components")
-axs[1, 0].legend()
-axs[1, 0].grid(True)
-
-# Fuel
-axs[1, 1].plot(sol.t, sol.y[4])
-axs[1, 1].set_xlabel("Time (s)")
-axs[1, 1].set_ylabel("Mass (kg)")
-axs[1, 1].set_title("Fuel Consumption")
-axs[1, 1].grid(True)
-plt.tight_layout()
+# --- Plot ---
+plt.plot(sol.t, alpha_log)
 plt.show()
+visualization.plot_mission_results(sol, mission_params)
