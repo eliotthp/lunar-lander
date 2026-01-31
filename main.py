@@ -1,8 +1,10 @@
 import numpy as np
+from scipy.integrate import solve_ivp
 
-G0 = 1.625  # m/s^2
-
-dt = 1  # s
+G = 1.625  # m/s^2
+G0 = 9.81  # m/s^2
+dt = 0.1  # s
+t_total = 100  # s
 
 
 class Lander:
@@ -13,42 +15,32 @@ class Lander:
         self.m_e = m_e
         self.m_p = S[2] - m_e
 
-    def find_acceleration(self, S, T, G0):
-        a = (T / S[2]) - G0
+    def controller(self, S):
+        Kp = 1
+        error = Kp * (0 - S[0])
+        return error
 
-        return a
+    def dynamics(self, S):
+        m = S[2]
+        # State Space Matrices
+        A = np.array([[0, 1], [0, 0]])
+        B = np.array([[0], [1 / m]])
+        f = np.array([0, -G])
+        C = np.array([1, 0])
+        # Input
+        u = m * G
+        # Dynamics
+        x_dot = A @ S[0:2] + B @ u
+        # Mass
+        m_dot = u / (G0 * self.Isp)
+        return [x_dot[0], x_dot[1], m_dot]
 
-    def find_velocity(self, S, a, dt):
-        v = S[1] + a * dt
-
-        S[1] = v
-
-        return v
-
-    def find_position(self, S, v, dt):
-        r = S[0] + v * dt
-
-        S[0] = r
-
-        return r
-
-    def update_mass(self, S, T, Isp, G0, m_e):
-        dmdt = T / (Isp * G0)
-
-        if S[2] - dmdt * dt >= m_e:
-            S[2] -= dmdt * dt
-
-
-Apollo = Lander(np.array([10000, -100, 15200]), 311, 45000 * 0.2, 4280)
+    def propagate(self, S, duration):
+        solve = solve_ivp(self.dynamics, (0, duration), S, method="RK45")
+        return solve
 
 
-for dt in range(1, 101):
-    print(Apollo.S)
+Apollo = Lander(np.array([10000, 0, 15200]), 311, 45000, 4280)
 
-    a = Apollo.find_acceleration(Apollo.S, Apollo.T, G0)
-
-    v = Apollo.find_velocity(Apollo.S, a, dt)
-
-    Apollo.find_position(Apollo.S, v, dt)
-
-    Apollo.update_mass(Apollo.S, Apollo.T, Apollo.Isp, G0, Apollo.m_e)
+for t in np.arange(0, t_total, dt):
+    print(f"Time: {t:.1f}s | State: {Apollo.S}")
