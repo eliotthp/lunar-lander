@@ -12,13 +12,14 @@ mu = G * m_moon  # m^3/s^2
 # Starting Conditions
 r0 = r_moon + 15_000  # m
 dr0 = 0  # m/s
+v0 = np.sqrt(mu / r0)
 theta0 = 0  # rad
-dtheta0 = 0  # rad/s
+dtheta0 = v0 / r0  # rad/s
 
 # Target Conditions
 target_r = r_moon  # m
 target_dr = 0  # m/s
-target_theta = 0  # rad
+target_theta = 480_000 / r_moon  # rad
 target_dtheta = 0  # rad/s
 
 
