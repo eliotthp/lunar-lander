@@ -1,6 +1,7 @@
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import solve_ivp
+import matplotlib.pyplot as plt
+import guidance  # Importing your toolset
 
 # --- Constants & Environment ---
 G = 6.67408e-11  # m^3/kg/s^2
@@ -36,12 +37,29 @@ guidance_timeline = {
 
 # --- Functions ---
 def controller(t, S):
-    current_stage = 0
-    for t0 in sorted(guidance_timeline.keys()):
-        if t >= t0:
-            current_stage = t0
-    thrust_pct, alpha_deg = guidance_timeline[current_stage]
-    return thrust_pct, alpha_deg
+    r_act, dr_act, theta_act, dtheta_act, m = S
+
+    # 1. Determine "Time to Go"
+    tf_total = 580  # Optimal time
+    t_go = max(0.01, tf_total - t)
+
+    # 2. Get Polynomial 'Demands'
+    _, _, ddr_req = guidance.poly_guidance(t, [r0, target_r, dr0, target_dr], tf_total)
+    _, _, ddtheta_req = guidance.poly_guidance(
+        t, [theta0, target_theta, dtheta0, target_dtheta], tf_total
+    )
+
+    # 3. Convert Demands to Physics
+    Fr = m * (ddr_req + mu / r_act**2 - r_act * dtheta_act**2)
+    Ft = m * (r_act * ddtheta_req + 2 * dr_act * dtheta_act)
+
+    thrust_req = np.sqrt(Fr**2 + Ft**2)
+    alpha_req = np.arctan2(Ft, Fr)  # Returns angle in radians
+
+    # 4. Apply Hardware Limits
+    thrust_pct = np.clip(thrust_req / T_max, 0, 1)
+
+    return thrust_pct, np.degrees(alpha_req)
 
 
 def dynamics(t, S):
