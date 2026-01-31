@@ -5,7 +5,8 @@ from scipy.integrate import solve_ivp
 # Simulation Constants
 G = 1.625  # m/s^2
 G0 = 9.81  # m/s^2
-t_total = 500  # s
+t_total = 1451  # s
+starting_alt = 1000  # m
 
 
 class Lander:
@@ -17,15 +18,16 @@ class Lander:
         self.m_p = S[2] - m_e
 
     def controller(self, S):
+        m = S[2]
         T_min = self.T * 0.2
         T_max = self.T * 0.6
         target_y = 0
         target_v = 0
 
-        Kp = 0.5
-        Kd = 1
+        Kp = 0.1
+        Kd = 50
 
-        u = Kp * (target_y - S[0]) + Kd * (target_v - S[1])
+        u = m * G + Kp * (target_y - S[0]) + Kd * (target_v - S[1])
         return np.clip(u, T_min, T_max)
 
     def dynamics(self, S):
@@ -54,21 +56,24 @@ class Lander:
         return sol
 
 
-Apollo = Lander(np.array([1000, -10, 15200]), 311, 45000, 4280)
+Apollo = Lander(np.array([starting_alt, 0, 15200]), 311, 45000, 4280)
+
+sol = Apollo.propagate(Apollo.S, t_total)
+print(f"Total fuel consumed: {Apollo.S[2] - sol.y[2][-1]:.2f} kg")
 
 # Plotting
-sol = Apollo.propagate(Apollo.S, t_total)
 fig, ax = plt.subplots()
-ax.plot(sol.t, sol.y[0], label="Altitude (km)", color="b")
-ax.plot(sol.t, -sol.y[1], label="Velocity (km/s)", color="g")
+ax.plot(sol.t, sol.y[0], label="Altitude (m)", color="b")
+ax.plot(sol.t, -sol.y[1], label="Velocity (m/s)", color="g")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("")
+plt.legend()
+plt.grid()
 ax2 = ax.twinx()
 ax2.plot(sol.t, sol.y[2], label="Mass (kg)", color="r")
 ax2.set_ylim([0, Apollo.S[2]])
 ax2.set_ylabel("")
 ax2.set_title("Apollo Lander Landing on Moon")
 ax.set_xlim([0, t_total])
-ax.set_ylim([0, np.max([np.max(sol.y[0]), np.max(-sol.y[1])])])
-plt.legend()
+ax.set_ylim([0, starting_alt])
 plt.show()
