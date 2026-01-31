@@ -33,6 +33,7 @@ b = np.array([[r0], [target_r], [dr0], [target_dr]])
 
 a, b, c, d = np.linalg.solve(a, b)
 r = a * t**3 + b * t**2 + c * t + d
+ddr = 6 * a * t + 2 * b
 
 # --- Polynomial Guidance (theta) ---
 a = np.array([[0, 0, 0, 1], [T**3, T**2, T, 1], [0, 0, 1, 0], [3 * T**2, 2 * T, 1, 0]])
@@ -40,6 +41,7 @@ b = np.array([[theta0], [target_theta], [dtheta0], [target_dtheta]])
 
 a, b, c, d = np.linalg.solve(a, b)
 theta = a * t**3 + b * t**2 + c * t + d
+ddtheta = 6 * a * t + 2 * b
 
 fig, axs = plt.subplots(2, 2, figsize=(14, 8))
 
@@ -48,14 +50,27 @@ axs[0, 0].set_xlabel("Theta (deg)")
 axs[0, 0].set_ylabel("Radius (m)")
 axs[0, 0].set_title("Radius vs. Theta (Descending Orbit)")
 
-axs[0, 1].plot(t, theta)
-axs[0, 1].set_xlabel("Time (s)")
-axs[0, 1].set_ylabel("Theta (rad)")
-axs[0, 1].set_title("Theta vs. Time")
+axs[1, 0].plot(t, ddr)
+axs[1, 0].set_xlabel("Time (s)")
+axs[1, 0].set_ylabel("ddr (m/s^2)")
+axs[1, 0].set_title("ddr vs. Time")
 
-axs[1, 1].plot(t, r - r_moon)
+axs[1, 1].plot(t, ddtheta * 180 / np.pi)
 axs[1, 1].set_xlabel("Time (s)")
-axs[1, 1].set_ylabel("Radius (m)")
-axs[1, 1].set_title("Radius vs. Time")
+axs[1, 1].set_ylabel("ddtheta (deg/s^2)")
+axs[1, 1].set_title("ddtheta vs. Time")
+
+ax1 = axs[0, 1]
+ax2 = ax1.twinx()
+ax1.plot(t, theta, color="b", label="Theta (rad)")
+ax1.set_xlabel("Time (s)")
+ax1.set_ylabel("Theta (rad)", color="b")
+ax1.tick_params(axis="y", colors="b")
+ax2.plot(t, r - r_moon, color="r", label="Radius (m)")
+ax2.set_ylabel("Radius (m)", color="r")
+ax2.tick_params(axis="y", colors="r")
+ax1.set_title("Theta and Radius vs. Time")
+ax1.legend(loc="lower left")
+ax2.legend(loc="upper right")
 
 plt.show()
