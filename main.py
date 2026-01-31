@@ -2,81 +2,90 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 # --- Constants & Environment ---
-G = 6.67408e-11 # m^3/kg/s^2
-G_earth = 9.81 # m/s^2
-r_moon = 1737e3 # m
-m_moon = 7.34767309e22 # kg
-mu = G * m_moon # m^3/s^2
+G = 6.67408e-11  # m^3/kg/s^2
+G_earth = 9.81  # m/s^2
+r_moon = 1737e3  # m
+m_moon = 7.34767309e22  # kg
+mu = G * m_moon  # m^3/s^2
 
 # --- Initial Conditions (From Apollo 11 Event B) ---
-r0 = r_moon + 14_878 # m
-dr0 = -1.22 # m/s
-theta0 = np.radians(40) # rad
-dtheta0 = -np.sqrt(mu / (r_moon + 14_878))/(r_moon + 14_878) # rad/s
-m0 = 15_240 # kg
-m_empty = 4_280 # kg
-Isp = 311 # s
-T_max = 45_000 # N
+r0 = r_moon + 14_878  # m
+dr0 = -1.22  # m/s
+theta0 = np.radians(40)  # rad
+dtheta0 = -np.sqrt(mu / (r_moon + 14_878)) / (r_moon + 14_878)  # rad/s
+m0 = 15_240  # kg
+m_empty = 4_280  # kg
+Isp = 311  # s
+T_max = 45_000  # N
 
 S0 = [r0, dr0, theta0, dtheta0, m0]
 
 guidance_timeline = {
-  0:  [0.10, 90.0], 
-  26:  [0.95, 93.0], 
-  176: [0.60, 80.0], 
-  384: [0.60, 65.0], 
-  506: [0.40, 45.0], 
-  606: [0.20, 10.0], 
+    0: [0.10, 93.0],
+    26: [0.95, 87.0],
+    176: [0.95, 71.0],
+    258: [0.95, 72.0],
+    384: [0.95, 73.0],
+    402: [0.95, 70.7],
+    506: [0.60, 45.0],
+    556: [0.40, 10.0],
+    606: [0.00, 00.0],
 }
+
 
 # --- Functions ---
 def controller(t, S):
-  current_stage = 0
-  for t0 in sorted(guidance_timeline.keys()):
-    if t >= t0:
-      current_stage = t0
-  thrust_pct, alpha_deg = guidance_timeline[current_stage]
-  return thrust_pct, alpha_deg
+    current_stage = 0
+    for t0 in sorted(guidance_timeline.keys()):
+        if t >= t0:
+            current_stage = t0
+    thrust_pct, alpha_deg = guidance_timeline[current_stage]
+    return thrust_pct, alpha_deg
+
 
 def dynamics(t, S):
-  r, dr, theta, dtheta, m = S
-  thrust_pct, alpha_deg = controller(t, S)
-  
-  # 1. Controller Logic (Functional)
-  alpha = np.radians(alpha_deg)
-  T = T_max * thrust_pct
+    r, dr, theta, dtheta, m = S
+    thrust_pct, alpha_deg = controller(t, S)
 
-  # 2. Fuel Guardrail
-  if m <= m_empty:
-    T, dm = 0, 0
-  else:
-    dm = - T / (G_earth * Isp)
+    # 1. Controller Logic (Functional)
+    alpha = np.radians(alpha_deg)
+    T = T_max * thrust_pct
 
-  # 3. Equations of Motion
-  ddr = (T/m) * np.cos(alpha) - mu/r**2 + r*dtheta**2
-  ddtheta = (1/r) * ((T/m) * np.sin(alpha) - 2*dr*dtheta)
+    # 2. Fuel Guardrail
+    if m <= m_empty:
+        T, dm = 0, 0
+    else:
+        dm = -T / (G_earth * Isp)
 
-  return [dr, ddr, dtheta, ddtheta, dm]
+    # 3. Equations of Motion
+    ddr = (T / m) * np.cos(alpha) - mu / r**2 + r * dtheta**2
+    ddtheta = (1 / r) * ((T / m) * np.sin(alpha) - 2 * dr * dtheta)
+
+    return [dr, ddr, dtheta, ddtheta, dm]
+
 
 def surface_contact(t, S):
     return S[0] - r_moon
+
+
 surface_contact.terminal = True
 surface_contact.direction = -1
 
-sol = solve_ivp(
-  lambda t, S: dynamics(t, S),
-  (0, 500),
-  S0,
-  method='RK45',
-  max_step=1
-  )
+sol = solve_ivp(lambda t, S: dynamics(t, S), (0, 720), S0, method="RK45", max_step=1)
 
-check_time = 176
-print(f"Time: {check_time} s")
-print(f"Altitude: {sol.y[0][check_time] - r_moon:.2f} m")
-print(f"Velocity: {sol.y[1][check_time]:.2f} m/s")
-
-'''
+# --- Choose time ---
+check_time = 606
+idx = np.argmin(np.abs(sol.t - check_time))
+# --- Quick Maths ---
+v_tangential = sol.y[0][idx] * sol.y[3][idx]
+v_inertial = np.sqrt(sol.y[1][idx] ** 2 + v_tangential**2)
+# --- Print Stats ---
+print(f"Time: {sol.t[idx]:.2f} s")
+print(f"Altitude: {sol.y[0][idx] - r_moon:.2f} m")
+print(f"Radial Velocity: {sol.y[1][idx]:.2f} m/s")
+print(f"Tangential Velocity: {v_tangential:.2f} m/s")
+print(f"Inertial Velocity: {v_inertial:.2f} m/s")
+"""
 # Target Conditions
 target_r = r_moon # m
 target_dr = 0 # m/s
@@ -95,7 +104,7 @@ miss_distance = (sol.y[2][-1] - target_theta) * r_moon
 print(f"--- MISSION DATA ---")
 print(f"Impact Velocity: {np.sqrt(final_dr**2 + (final_dtheta*final_r)**2):.2f} m/s")
 print(f"Miss Distance: {miss_distance/1000:.2f} km")
-print(f"Remaining Propellant: {(final_m - Apollo.m_e):.2f} kg")
+print(f"Remaining Propellant: {(final_m - m_empty):.2f} kg")
 
 # Convert rad to deg
 sol.y[2] *= 180/np.pi
@@ -144,4 +153,4 @@ axs[1,1].set_title('Fuel Consumption')
 axs[1,1].grid(True)
 plt.tight_layout()
 plt.show()
-'''
+"""
