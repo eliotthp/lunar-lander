@@ -39,13 +39,6 @@ def dynamics(t, S):
 
     T_cmd, alpha_cmd = ctrl.control(t, S, targets[:, 0].tolist())
 
-    # Controller Logic (Functional)
-    T = T_cmd
-    if alpha_cmd - alpha > 0:
-        dalpha = np.deg2rad(np.clip(5, 0, alpha_cmd - alpha))
-    else:
-        dalpha = -np.deg2rad(np.clip(5, alpha_cmd - alpha, 0))
-
     # Fuel Guardrail
     if m <= m_empty:
         T, dm = 0, 0
@@ -55,6 +48,7 @@ def dynamics(t, S):
     # Equations of Motion
     ddr = (T / m) * np.cos(alpha) - mu / r**2 + r * dtheta**2
     ddtheta = (1 / r) * ((T / m) * np.sin(alpha) - 2 * dr * dtheta)
+    dalpha = alpha_cmd
 
     return [dr, ddr, dtheta, ddtheta, dm, dalpha]
 

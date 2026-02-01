@@ -20,6 +20,9 @@ def control(t, S, targets):
     x = r_moon * theta
     dx = r_moon * dtheta
 
+    # Constraints
+    dalpha = 5  # deg/s
+
     # Braking Phase
     if z > 2346.96:
         tf = 500
@@ -32,5 +35,11 @@ def control(t, S, targets):
 
     T_cmd = m * np.sqrt((ddz_cmd + g) ** 2 + ddx_cmd**2)
     alpha_cmd = np.arctan2(ddx_cmd, ddz_cmd + g)
+
+    # Attitude rate limit
+    if alpha_cmd > dalpha:
+        alpha_cmd = dalpha
+    elif alpha_cmd < -dalpha:
+        alpha_cmd = -dalpha
 
     return T_cmd, alpha_cmd
