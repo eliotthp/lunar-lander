@@ -1,9 +1,8 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
-import visualization  # Importing the visualization module
 import guidance  # Importing the guidance module
-
+import visualization  # Importing the visualization module
 
 # --- Constants & Environment ---
 G = 6.67408e-11  # m^3/kg/s^2
@@ -18,23 +17,24 @@ dr0 = -1.22  # m/s
 theta0 = np.radians(40)  # rad
 dtheta0 = -np.sqrt(mu / (r_moon + 14_878)) / (r_moon + 14_878)  # rad/s
 m0 = 15_240  # kg
+alpha0 = np.pi / 2  # rad
 m_empty = 4_280  # kg
 Isp = 311  # s
 T_max = 45_000  # N
 
 # Target Conditions
-target_r = [2346.96, r_moon]  # m
+target_r = [2346.96 + r_moon, r_moon]  # m
 target_dr = [-44.2, 0]  # m/s
 target_theta = [np.radians(24.5), theta0 - 480_000 / r_moon]  # rad
-target_dtheta = [0.0657, 0]  # rad/s
+target_dtheta = [-8.828e-5, 0]  # rad/s
 
-S0 = [r0, dr0, theta0, dtheta0, m0]
+S0 = [r0, dr0, theta0, dtheta0, m0, alpha0]
 
 
 # --- Functions ---
 def controller(t, S):
     # Navigation
-    r_act, dr_act, theta_act, dtheta_act, m = S
+    r_act, dr_act, theta_act, dtheta_act, m, alpha_act = S
 
     # Braking Phase
     if r_act - r_moon > 2346.96:
@@ -83,17 +83,20 @@ def controller(t, S):
     """
         thrust_req, alpha_req = 0, 0
 
-    return [thrust_req, alpha_req]
+    return thrust_req, alpha_req
 
 
 def dynamics(t, S):
-    r, dr, theta, dtheta, m = S
+    r, dr, theta, dtheta, m, alpha = S
 
-    thrust_pct, alpha_deg = controller(t, S)
+    thrust_req, alpha_req = controller(t, S)
 
     # Controller Logic (Functional)
-    alpha = np.radians(alpha_deg)
-    T = T_max * thrust_pct
+    T = thrust_req
+    if alpha_req - alpha > 0:
+        dalpha = np.deg2rad(np.clip(5, 0, alpha_req - alpha))
+    else:
+        dalpha = -np.deg2rad(np.clip(5, alpha_req - alpha, 0))
 
     # Fuel Guardrail
     if m <= m_empty:
@@ -105,7 +108,7 @@ def dynamics(t, S):
     ddr = (T / m) * np.cos(alpha) - mu / r**2 + r * dtheta**2
     ddtheta = (1 / r) * ((T / m) * np.sin(alpha) - 2 * dr * dtheta)
 
-    return [dr, ddr, dtheta, ddtheta, dm]
+    return [dr, ddr, dtheta, ddtheta, dm, dalpha]
 
 
 # --- Simulation ---
@@ -142,7 +145,9 @@ reconstructed_thrust = []
 for i in range(len(sol.t)):
     t_val = sol.t[i]
     s_val = sol.y[:, i]
-    pct, deg = controller(t_val, s_val)
+    pct, rad = controller(t_val, s_val)
+    deg = np.rad2deg(rad)
+    pct /= T_max
     reconstructed_alpha.append(deg)
     reconstructed_thrust.append(pct * 100)  # As percentage
 
@@ -150,6 +155,7 @@ plt.plot(sol.t, reconstructed_alpha, label="Pitch (deg)", color="orange")
 plt.plot(sol.t, reconstructed_thrust, label="Thrust (%)", color="purple")
 plt.title("Control Commands Over Time")
 plt.legend()
+plt.grid(True)
 plt.tight_layout()
 plt.show()
 
