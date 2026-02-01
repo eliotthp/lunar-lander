@@ -1,85 +1,116 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import environment as env
+
+# --- Constants & Environment ---
+m_empty = env.m_empty
 
 # In future auto-update graphs to be displayed in GitHub
 
 
-def plot_mission_results(sol, params):
-    # Unpack the parameters dictionary for cleaner math
-    r_moon = params["r_moon"]
-    target_theta = params["target_theta"]
-    target_r = params["target_r"]
-    theta0 = params["theta0"]
-    m0 = params["m0"]
-    m_empty = params["m_empty"]
-    Isp = params["Isp"]
-    G_earth = params["G_earth"]
+def trajectory(theta, alt):
+    """
+    Plots the altitude of the lunar module relative to its angular position.
 
-    # Final Conditions
-    final_r = sol.y[0][-1]
-    final_dr = sol.y[1][-1]
-    final_theta = sol.y[2][-1]
-    final_dtheta = sol.y[3][-1]
-    final_m = sol.y[4][-1]
-    delta_v = Isp * G_earth * np.log(m0 / m_empty)
+    Args:
+        theta (ndarray): Array of angular positions (degrees).
+        alt (ndarray): Array of altitudes (meters).
+    """
+    plt.plot(theta, alt, label="Trajectory")
+    plt.xlabel("Theta ($\degree$)")
+    plt.ylabel("Altitude (m)")
+    plt.title("Trajectory of Lunar Module")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-    # Final Stats
-    miss_distance = (sol.y[2][-1] - target_theta) * r_moon
 
-    print(f"--- MISSION DATA --- Final Time: {sol.t[-1]:.2f} s ---")
-    print(
-        f"Impact Velocity: {np.sqrt(final_dr**2 + (final_dtheta * final_r) ** 2):.2f} m/s"
-    )
-    print(f"Miss Distance: {miss_distance / 1000:.2f} km")
-    print(f"Remaining Propellant: {(final_m - m_empty):.2f} kg")
-    print(f"Total Delta V Expended: {delta_v:.2f} m/s")
+def telemetry(
+    t, vel_components, alpha_cmd, thrust_cmd, alpha_actual, thrust_actual, m_p
+):
+    """
+    Generates a 2x2 grid of plots showing the vehicle's telemetry over time.
 
-    # Convert rad to deg
-    theta = sol.y[2] * 180 / np.pi  # deg
-    theta0 *= 180 / np.pi  # deg
-    target_theta *= 180 / np.pi  # deg
-    final_theta *= 180 / np.pi  # deg
+    Args:
+        t (ndarray): Time array.
+        vel_components (list): List containing vertical (vz) and horizontal (vx) velocities.
+        alpha_cmd (ndarray): Commanded pitch angle array.
+        thrust_cmd (ndarray): Commanded thrust array.
+        alpha_actual (ndarray): Actual pitch angle array.
+        thrust_actual (ndarray): Actual thrust array.
+        m_p (ndarray): Propellant mass array.
+    """
+    vz = vel_components[0]
+    vx = vel_components[1]
+    fig, axs = plt.subplots(2, 2, figsize=(12, 10))
 
-    # Plotting
-    fig, axs = plt.subplots(2, 2, figsize=(14, 8))
-
-    # The trajectory
-    axs[0, 0].plot(theta, sol.y[0] - r_moon, label="Eagle Path")
-    axs[0, 0].axhline(y=0, color="gray", linestyle="--", label="Moon Surface")
-    axs[0, 0].scatter(target_theta, target_r - r_moon, color="red", label="Target")
-    axs[0, 0].scatter(
-        final_theta, final_r - r_moon, color="black", marker="x", label="Impact"
-    )
-    axs[0, 0].set_xlim(theta0, target_theta - 1)
-    axs[0, 0].set_ylim(-500, max(sol.y[0] - r_moon) + 500)
-    axs[0, 0].set_xlabel("Theta (°)")
-    axs[0, 0].set_ylabel("Radius (m)")
-    axs[0, 0].set_title("Radius vs. Theta (Descending Orbit)")
+    # Velocity Components
+    axs[0, 0].plot(t, vz, label="Vertical Velocity (dz)")
+    axs[0, 0].plot(t, vx, label="Horizontal Velocity (dx)")
+    axs[0, 0].set_title("Velocity Components Over Time")
+    axs[0, 0].set_xlabel("Time (s)")
+    axs[0, 0].set_ylabel("Velocity (m/s)")
     axs[0, 0].legend()
     axs[0, 0].grid(True)
 
-    # Altitude vs. Time
-    axs[0, 1].plot(sol.t, sol.y[0] - r_moon)
-    axs[0, 1].set_ylim(-500, max(sol.y[0] - r_moon) + 500)
+    # Pitch Command vs Actual
+    axs[0, 1].plot(t, alpha_cmd, "r--", label="Pitch Command")
+    axs[0, 1].plot(t, alpha_actual, "b", label="Pitch Actual")
+    axs[0, 1].set_title("Pitch Angle: Command vs Actual")
     axs[0, 1].set_xlabel("Time (s)")
-    axs[0, 1].set_ylabel("Altitude (m)")
-    axs[0, 1].set_title("Altitude vs. Time")
+    axs[0, 1].set_ylabel("Angle ($\degree$)")
+    axs[0, 1].legend()
     axs[0, 1].grid(True)
 
-    # Velocity Components
-    axs[1, 0].plot(sol.t, sol.y[1], label="Radial")
-    axs[1, 0].plot(sol.t, -(sol.y[3] * sol.y[0]), label="Angular")
+    # Thrust Command vs Actual
+    axs[1, 0].plot(t, thrust_cmd, "r--", label="Thrust Command")
+    axs[1, 0].plot(t, thrust_actual, "g", label="Thrust Actual")
+    axs[1, 0].set_title("Thrust: Command vs Actual")
     axs[1, 0].set_xlabel("Time (s)")
-    axs[1, 0].set_ylabel("Velocity (m/s)")
-    axs[1, 0].set_title("Velocity Components")
+    axs[1, 0].set_ylabel("Thrust (N)")
     axs[1, 0].legend()
     axs[1, 0].grid(True)
 
-    # Fuel
-    axs[1, 1].plot(sol.t, sol.y[4])
+    # Mass of Propellant
+    axs[1, 1].plot(t, m_p, color="purple", label="Propellant Mass")
+    axs[1, 1].set_title("Propellant Mass Over Time")
     axs[1, 1].set_xlabel("Time (s)")
     axs[1, 1].set_ylabel("Mass (kg)")
-    axs[1, 1].set_title("Fuel Consumption")
+    axs[1, 1].legend()
     axs[1, 1].grid(True)
     plt.tight_layout()
     plt.show()
+
+
+def end_state_metrics(t, final_state):
+    """
+    Calculates and prints the final mission performance metrics.
+
+    Args:
+        t (ndarray): Time array from the simulation.
+        final_state (list): The final state vector [r, dr, theta, dtheta, m, alpha].
+    """
+    # Unpack final state
+    r_final, dr_final, theta_final, dtheta_final, m_final, alpha_final = final_state
+    # Constants
+    Isp = env.Isp
+    G_earth = env.G_earth
+    m0 = env.m0
+    # Find impact velocity
+    impact_velocity = np.sqrt(dr_final**2 + (r_final * dtheta_final) ** 2)
+    # Find remaining prop
+    remaining_propellant = m_final - m_empty
+    # Calculate delta-V
+    delta_v = Isp * G_earth * np.log(m0 / m_final)
+
+    print("-" * 30)
+    print("MISSION END STATE METRICS")
+    print("-" * 30)
+    print(f"Time of Flight:    {t[-1]:.2f} s")
+    print(f"Impact Velocity:   {impact_velocity:.2f} m/s")
+    print(f"Delta-V:           {delta_v:.2f} m/s")
+    print(f"Vertical Vel:      {dr_final:.2f} m/s")
+    print(f"Horizontal Vel:    {r_final * dtheta_final:.2f} m/s")
+    print(f"Remaining Fuel:    {remaining_propellant:.2f} kg")
+    print("-" * 30)
