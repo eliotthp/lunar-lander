@@ -35,16 +35,16 @@ def plot_mission_results(sol, params):
     print(f"Total Delta V Expended: {delta_v:.2f} m/s")
 
     # Convert rad to deg
-    sol.y[2] *= 180 / np.pi
-    theta0 *= 180 / np.pi
-    target_theta *= 180 / np.pi
-    final_theta *= 180 / np.pi
+    theta = sol.y[2] * 180 / np.pi  # deg
+    theta0 *= 180 / np.pi  # deg
+    target_theta *= 180 / np.pi  # deg
+    final_theta *= 180 / np.pi  # deg
 
     # Plotting
     fig, axs = plt.subplots(2, 2, figsize=(14, 8))
 
     # The trajectory
-    axs[0, 0].plot(sol.y[2], sol.y[0] - r_moon, label="Eagle Path")
+    axs[0, 0].plot(theta, sol.y[0] - r_moon, label="Eagle Path")
     axs[0, 0].axhline(y=0, color="gray", linestyle="--", label="Moon Surface")
     axs[0, 0].scatter(target_theta, target_r - r_moon, color="red", label="Target")
     axs[0, 0].scatter(
