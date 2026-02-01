@@ -19,6 +19,7 @@ def trajectory(theta, alt):
     plt.plot(theta, alt, label="Trajectory")
     plt.xlabel("Theta ($\degree$)")
     plt.ylabel("Altitude (m)")
+    plt.gca().invert_xaxis()
     plt.title("Trajectory of Lunar Module")
     plt.legend()
     plt.grid(True)

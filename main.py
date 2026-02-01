@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.integrate import solve_ivp
-import matplotlib.pyplot as plt
 import controller as ctrl  # Importing the controller module
 import visualization as viz  # Importing the visualization module
 import environment as env  # Importing the enviromental variables
@@ -49,13 +48,13 @@ def dynamics(t, S):
 
     # Fuel Guardrail
     if m <= m_empty:
-        T, dm = 0, 0
+        T_cmd, dm = 0, 0
     else:
-        dm = -T / (G_earth * Isp)
+        dm = -T_cmd / (G_earth * Isp)
 
     # Equations of Motion
-    ddr = (T / m) * np.cos(alpha) - mu / r**2 + r * dtheta**2
-    ddtheta = (1 / r) * ((T / m) * np.sin(alpha) - 2 * dr * dtheta)
+    ddr = (T_cmd / m) * np.cos(alpha) - mu / r**2 + r * dtheta**2
+    ddtheta = (1 / r) * ((T_cmd / m) * np.sin(alpha) - 2 * dr * dtheta)
     dalpha = alpha_cmd
 
     return [dr, ddr, dtheta, ddtheta, dm, dalpha]
@@ -87,37 +86,30 @@ sol = solve_ivp(
     max_step=1,
 )
 
-# --- Results ---
-mission_params = {
-    "r_moon": r_moon,
-    "target_theta": xf[-1] / r_moon,
-    "target_r": zf[-1] + r_moon,
-    "theta0": theta0,
-    "m0": m0,
-    "m_empty": m_empty,
-    "Isp": Isp,
-    "G_earth": G_earth,
-}
+# --- Convert for plotting ---
+z = sol.y[0] - r_moon
+dz = sol.y[1]
+x = r_moon * sol.y[2]
+dx = r_moon * sol.y[3]
 
-reconstructed_alpha = []
-reconstructed_thrust = []
+m_p = sol.y[4] - m_empty
+
+T_cmd_hist = []
+alpha_cmd_hist = []
 
 for i in range(len(sol.t)):
-    t_val = sol.t[i]
-    s_val = sol.y[:, i]
-    pct, rad = ctrl.control(t_val, s_val, targets[:, 0].tolist())
-    deg = np.rad2deg(rad)
-    pct /= T_max
-    reconstructed_alpha.append(deg)
-    reconstructed_thrust.append(pct * 100)  # As percentage
+    T_cmd, alpha_cmd = ctrl.control(sol.t[i], sol.y[:, i], targets[:, 0].tolist())
+    T_cmd_hist.append(T_cmd)
+    alpha_cmd_hist.append(alpha_cmd)
 
-plt.plot(sol.t, reconstructed_alpha, label="Pitch (deg)", color="orange")
-plt.plot(sol.t, reconstructed_thrust, label="Thrust (%)", color="purple")
-plt.title("Control Commands Over Time")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
-
-# --- Plot ---
-viz.plot_mission_results(sol, mission_params)
+# --- Plotting ---
+viz.trajectory(np.rad2deg(sol.y[2]), sol.y[0] - r_moon)
+viz.telemetry(
+    sol.t,
+    [dz, dx],
+    np.rad2deg(alpha_cmd_hist),
+    T_cmd_hist,
+    np.rad2deg(sol.y[5]),
+    T_cmd_hist,
+    m_p,
+)
