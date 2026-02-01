@@ -27,7 +27,7 @@ The simulation solves the non-linear equations of motion in a polar coordinate f
 
 ## 📊 Simulation Visualizations
 
-*(Note: Add screenshots of your plots here. I recommend adding 'trajectory.png' and 'telemetry.png' to a /docs folder)*
+*(Note: Will add screenshots of simulation data in the future (/docs))*
 
 * **Trajectory Plot:** Tracks altitude vs. downrange distance relative to the landing site.
 * **Telemetry:** Real-time logging of Pitch ($\alpha$), Thrust (%), Velocity Components, and Propellant Mass.
@@ -38,6 +38,8 @@ The simulation solves the non-linear equations of motion in a polar coordinate f
 ```bash
 ├── main.py             # Simulation loop, RK45 integrator, and event handling
 ├── guidance.py         # Polynomial guidance library (Cubic Spline generation)
+├── enviroment.py       # Enviroment variables and constants
+├── controller.py       # Spaceship control logic
 ├── visualization.py    # Plotting and telemetry reconstruction
 ├── README.md           # Project documentation
 └── .gitignore          # Python/Environment exclusion patterns
