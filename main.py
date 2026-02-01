@@ -103,6 +103,21 @@ sol = solve_ivp(
 )
 
 # --- Results ---
+
+# Reconstruct Alpha and Thrust to match sol.t
+alpha_final = []
+thrust_final = []
+
+for i in range(len(sol.t)):
+    t_val = sol.t[i]
+    s_val = sol.y[:, i]
+
+    pct, deg = controller(t_val, s_val)
+
+    alpha_final.append(deg)
+    thrust_final.append(pct * T_max)
+
+# Package parameters
 mission_params = {
     "r_moon": r_moon,
     "target_theta": target_theta,
@@ -114,7 +129,13 @@ mission_params = {
     "G_earth": G_earth,
 }
 
-# --- Plot ---
-plt.plot(sol.t, alpha_log)
+# Plot
+plt.figure(figsize=(10, 4))
+plt.plot(sol.t, alpha_final, label="Pitch Angle (deg)")
+plt.xlabel("Time (s)")
+plt.ylabel("Alpha (deg)")
+plt.title("Reconstructed Control Profile")
+plt.grid(True)
 plt.show()
+
 visualization.plot_mission_results(sol, mission_params)

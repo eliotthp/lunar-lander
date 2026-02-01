@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_mission_results(sol, alpha_log, params):
+def plot_mission_results(sol, params):
     # Unpack the parameters dictionary for cleaner math
     r_moon = params["r_moon"]
     target_theta = params["target_theta"]
