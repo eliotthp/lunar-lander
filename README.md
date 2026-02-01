@@ -41,3 +41,23 @@ The simulation solves the non-linear equations of motion in a polar coordinate f
 ├── visualization.py    # Plotting and telemetry reconstruction
 ├── README.md           # Project documentation
 └── .gitignore          # Python/Environment exclusion patterns
+
+## 📚 References & Data Sources
+
+This simulation relies on historical flight data and technical specifications from the following official documentation:
+
+1.  **NASA Manned Spacecraft Center**, *"Apollo 11 Mission Report"* (MSC-00171), Nov 1970.  
+    [NASA Technical Reports Server (NTRS)](https://ntrs.nasa.gov/api/citations/19700024568/downloads/19700024568.pdf)  
+    *Primary source for trajectory timeline, event times (P63/P64 transition), and propellant usage.*
+
+2.  **NASA Safety & Mission Assurance**, *"Apollo 11 Mission Report"* (Significant Incidents Context).  
+    [Available PDF](https://sma.nasa.gov/SignificantIncidents/assets/a11_missionreport.pdf)  
+    *Used for verifying safety constraints and abort boundaries.*
+
+3.  **Aircraft Engine Historical Society**, *"The Lunar Module Descent Engine (LMDE)"*.  
+    [EngineHistory.org](https://www.enginehistory.org/Rockets/RPE09.46/RPE09.46.shtml)  
+    *Source for TRW Descent Engine performance data ($I_{sp}$, Thrust curves, and throttling limits).*
+
+4.  **Wikipedia Contributors**, *"Apollo Lunar Module"* & *"Descent Propulsion System"*.  
+    [Apollo Lunar Module](https://en.wikipedia.org/wiki/Apollo_Lunar_Module) | [DPS](https://en.wikipedia.org/wiki/Descent_propulsion_system)  
+    *General physical properties (Dry Mass, Tank Capacities, Dimensions).*
