@@ -23,13 +23,12 @@ Isp = 311  # s
 T_max = 45_000  # N
 
 # Target Conditions
-target_r = r_moon  # m
-target_dr = 0  # m/s
-target_theta = theta0 - 480_000 / r_moon  # rad
-target_dtheta = 0  # rad/s
+target_r = [2346.96, r_moon]  # m
+target_dr = [-44.2, 0]  # m/s
+target_theta = [np.radians(24.5), theta0 - 480_000 / r_moon]  # rad
+target_dtheta = [0.0657, 0]  # rad/s
 
 S0 = [r0, dr0, theta0, dtheta0, m0]
-alpha_log = []
 
 
 # --- Functions ---
@@ -37,28 +36,50 @@ def controller(t, S):
     # Navigation
     r_act, dr_act, theta_act, dtheta_act, m = S
 
-    # Determine time remaining
-    tf_total = 580
-    t_go = max(0.01, tf_total - t)
+    # Braking Phase
+    if r_act - r_moon > 2346.96:
+        tf_total = 8 * 60 + 26
+        # Guidance
+        _, _, ddr_req = guidance.poly_guidance(
+            t, [r0, target_r[0], dr0, target_dr[0]], tf_total
+        )
+        _, _, ddtheta_req = guidance.poly_guidance(
+            t, [theta0, target_theta[0], dtheta0, target_dtheta[0]], tf_total
+        )
 
-    # Guidance
-    _, _, ddr_req = guidance.poly_guidance(t, [r0, target_r, dr0, target_dr], tf_total)
-    _, _, ddtheta_req = guidance.poly_guidance(
-        t, [theta0, target_theta, dtheta0, target_dtheta], tf_total
-    )
+        Fr = m * (ddr_req + mu / r_act**2 - r_act * dtheta_act**2)
+        Ft = m * (r_act * ddtheta_req + 2 * dr_act * dtheta_act)
 
-    # Control
-    Fr = m * (ddr_req + mu / r_act**2 - r_act * dtheta_act**2)
-    Ft = m * (r_act * ddtheta_req + 2 * dr_act * dtheta_act)
+        thrust_req = np.sqrt(Fr**2 + Ft**2)
+        alpha_req = np.arctan2(Ft, Fr)
 
-    thrust_req = np.sqrt(Fr**2 + Ft**2)
-    alpha_req = np.arctan2(Ft, Fr)
+        # Apply Limits
+        thrust_pct = 0.95
+    else:
+        # Determine time remaining
+        tf_total = 580
+        t_go = max(0.01, tf_total - t)
 
-    # Apply Limits
-    thrust_pct = np.clip(thrust_req / T_max, 0, 1)
+        # Guidance
+        _, _, ddr_req = guidance.poly_guidance(
+            t, [r0, target_r, dr0, target_dr], tf_total
+        )
+        _, _, ddtheta_req = guidance.poly_guidance(
+            t, [theta0, target_theta, dtheta0, target_dtheta], tf_total
+        )
 
-    if r_act <= r_moon + 0.1:
-        thrust_pct = 0
+        # Control
+        Fr = m * (ddr_req + mu / r_act**2 - r_act * dtheta_act**2)
+        Ft = m * (r_act * ddtheta_req + 2 * dr_act * dtheta_act)
+
+        thrust_req = np.sqrt(Fr**2 + Ft**2)
+        alpha_req = np.arctan2(Ft, Fr)
+
+        # Apply Limits
+        thrust_pct = np.clip(thrust_req / T_max, 0, 1)
+
+        if r_act <= r_moon + 0.1:
+            thrust_pct = 0
 
     return thrust_pct, np.degrees(alpha_req)
 
@@ -67,7 +88,6 @@ def dynamics(t, S):
     r, dr, theta, dtheta, m = S
 
     thrust_pct, alpha_deg = controller(t, S)
-    alpha_log.append(np.degrees(alpha_deg))
 
     # Controller Logic (Functional)
     alpha = np.radians(alpha_deg)
@@ -103,21 +123,6 @@ sol = solve_ivp(
 )
 
 # --- Results ---
-
-# Reconstruct Alpha and Thrust to match sol.t
-alpha_final = []
-thrust_final = []
-
-for i in range(len(sol.t)):
-    t_val = sol.t[i]
-    s_val = sol.y[:, i]
-
-    pct, deg = controller(t_val, s_val)
-
-    alpha_final.append(deg)
-    thrust_final.append(pct * T_max)
-
-# Package parameters
 mission_params = {
     "r_moon": r_moon,
     "target_theta": target_theta,
@@ -129,13 +134,22 @@ mission_params = {
     "G_earth": G_earth,
 }
 
-# Plot
-plt.figure(figsize=(10, 4))
-plt.plot(sol.t, alpha_final, label="Pitch Angle (deg)")
-plt.xlabel("Time (s)")
-plt.ylabel("Alpha (deg)")
-plt.title("Reconstructed Control Profile")
-plt.grid(True)
+reconstructed_alpha = []
+reconstructed_thrust = []
+
+for i in range(len(sol.t)):
+    t_val = sol.t[i]
+    s_val = sol.y[:, i]
+    pct, deg = controller(t_val, s_val)
+    reconstructed_alpha.append(deg)
+    reconstructed_thrust.append(pct * 100)  # As percentage
+
+plt.plot(sol.t, reconstructed_alpha, label="Pitch (deg)", color="orange")
+plt.plot(sol.t, reconstructed_thrust, label="Thrust (%)", color="purple")
+plt.title("Control Commands Over Time")
+plt.legend()
+plt.tight_layout()
 plt.show()
 
+# --- Plot ---
 visualization.plot_mission_results(sol, mission_params)
