@@ -5,9 +5,14 @@
 ![Status](https://img.shields.io/badge/Status-Active_Development-orange)
 
 ## 🚀 Project Overview
-This project is a high-fidelity, 3-Degree-of-Freedom (3-DOF) flight dynamics simulation of the **Apollo 11 Lunar Module (LM)** descent sequence. It models the critical **Braking Phase (P63)** and **Approach Phase (P64)** using a closed-loop Guidance, Navigation, and Control (GNC) architecture.
+This project is 3-DOF flight dynamics simulation of the **Apollo 11 Lunar Module (LM)** during the early portion of the powered descent to the lunar surface. The focus of the current implementation is the **Braking Phase (P63)**, where the LM transitions from a low-altitude descent orbit to a controlled, near-vertical descent.
 
-The simulation solves the non-linear equations of motion in a polar coordinate frame, accounting for the Moon's spherical gravity, centrifugal relief, and Coriolis effects. It implements a **Receding Horizon Polynomial Guidance** algorithm to generate optimal acceleration commands in real-time, subject to physical actuator constraints (Thrust-to-Weight ratios and Reaction Control System slew rates).
+The simulation is structured as a modular Guidance, Navigation, and control (GNC) system, with clear seperation between:
+* physical dynamics (the "plant"),
+* guidance law generation,
+* control and actuator logic,
+* and visualization/post-processing.
+The project is under **active development**, with additional descent phases (High Gate / Low Gate / P64-style approach) planned but not yet fully implemented.
 
 ## 🛠 Engineering & Technical Highlights
 
@@ -44,6 +49,21 @@ The simulation solves the non-linear equations of motion in a polar coordinate f
 ├── README.md           # Project documentation
 └── .gitignore          # Python/Environment exclusion patterns
 ```
+
+## 🔧 Current Limitations
+* Only the **Braking Phase (P63)** is fully implemented.
+* Time-to-go is currently fixed rather than state-scheduled.
+* Attitude dynamics are simplified (single-angle model).
+* Throttle and attitude rate limits are not implemented.
+* No terrain model or landing leg dynamics.
+
+## 🔜 Planned Extensions
+* Explicit **High Gate / Low Gate** phase transitions.
+* Tracking control layered on top of guidance references.
+* State-dependent time-to-go scheduling.
+* Improved actuator dynamics and saturation handling.
+* Validation against published Apollo descent data.
+
 ## 📚 References & Data Sources
 
 This simulation relies on historical flight data and technical specifications from the following official documentation:
