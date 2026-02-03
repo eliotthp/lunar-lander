@@ -17,14 +17,15 @@ dr0 = -1.22  # m/s
 theta0 = np.radians(40)  # rad
 dtheta0 = -np.sqrt(mu / (r_moon + 14_878)) / (r_moon + 14_878)  # rad/s
 """
+S0 = [14_878 + r_moon, 0, 0, -np.sqrt(mu / (r_moon + 14_878)) / (r_moon + 14_878), m0]
 
-S0 = [14_878 + r_moon, 0, 0, 0, m0]
-
+# Initialize Simulation Parameters
 landing = True
 t = 0  # Simulation time
 dt = 1  # Loop every second
 h = dt / 100  # Plant run for accuracy
 
+# Initialize state and trackers
 S = S0
 S_hist = []
 t_hist = []

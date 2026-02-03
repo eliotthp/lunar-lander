@@ -9,7 +9,6 @@ def get_derivatives(S, C):
     # Unpack state
     r, dr, theta, dtheta, m = S
     T, alpha = C
-
     # Equations of Motion
     ddr = T / m * np.cos(alpha) - mu / r**2 + r * dtheta**2
     ddtheta = 1 / r * ((T / m) * np.sin(alpha) - 2 * dr * dtheta)
@@ -32,6 +31,7 @@ def update_state(dt, S, dS):
 
 
 def propagate(h, dt, S, C):
+    # Ensure that n is exactly 100
     n = int(round(dt / h))
     for _ in range(n):
         dS = get_derivatives(S, C)
