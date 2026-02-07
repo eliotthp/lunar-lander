@@ -45,8 +45,8 @@ def telemetry(t, vel_components, alpha_cmd, thrust_cmd, alpha_ctrl, thrust_ctrl,
     fig, axs = plt.subplots(2, 2, figsize=(12, 10))
 
     # Velocity Components
-    axs[0, 0].plot(t, vz, label="Vertical Velocity (dz)")
-    axs[0, 0].plot(t, vx, label="Horizontal Velocity (dx)")
+    axs[0, 0].plot(t, vz, label="Vertical Velocity")
+    axs[0, 0].plot(t, vx, label="Horizontal Velocity")
     axs[0, 0].set_title("Velocity Components Over Time")
     axs[0, 0].set_xlabel("Time (s)")
     axs[0, 0].set_ylabel("Velocity (m/s)")

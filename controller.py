@@ -43,8 +43,14 @@ def control(t, S, targets):
 
 
 def thrust_limiter(T_cmd):
-    if T_cmd > T_max:
+    throttle = T_cmd / T_max * 100  # Throttle (%)
+    if throttle >= 65:
         T_ctrl = T_max
+    elif throttle >= 10:
+        if throttle >= 65:
+            T_ctrl = T_max * 0.65
+        else:
+            T_ctrl = T_max * throttle / 100
     else:
-        T_ctrl = T_cmd
+        T_ctrl = T_max * 0.1
     return T_ctrl

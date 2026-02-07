@@ -31,7 +31,8 @@ t_hist = []
 alpha_hist = []
 T_cmd_hist = []
 T_ctrl_hist = []
-t_max = 1_000
+t_max = 900
+
 # --- Main Loop ---
 while landing:
     if t >= t_max or LVLH[0] <= 0:
