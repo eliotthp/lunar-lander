@@ -4,31 +4,116 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Active_Development-orange)
 
-## 🚀 Project Overview
-This project is 3-DOF flight dynamics simulation of the **Apollo 11 Lunar Module (LM)** during the early portion of the powered descent to the lunar surface. The focus of the current implementation is the **Braking Phase (P63)**, where the LM transitions from a low-altitude descent orbit to a controlled, near-vertical descent.
+---
 
-The simulation is structured as a modular Guidance, Navigation, and control (GNC) system, with clear seperation between:
-* physical dynamics (the "plant"),
-* guidance law generation,
-* control and actuator logic,
-* and visualization/post-processing.
-The project is under **active development**, with additional descent phases (High Gate / Low Gate / P64-style approach) planned but not yet fully implemented.
+## 🚀 Project Overview
+
+This project is a **high‑fidelity Guidance, Navigation, and Control (GNC) simulation of the Apollo Lunar Module (LM) powered descent**, with emphasis on **flight‑software architecture and physical realism** rather than pure trajectory optimization.
+
+The simulation currently focuses on the **Braking Phase (Apollo P63)**, where the LM transitions from low lunar orbit into a controlled, powered descent. The goal is not merely to “make it land,” but to model how real spacecraft software is structured and validated.
+
+Key architectural principles:
+
+* Explicit separation of **plant (truth model)**, **navigation**, **guidance**, **control**, and **actuation**
+* Clear state and frame conventions (LVLH vs polar)
+* Incremental realism layered through actuator and propulsion constraints
+
+---
 
 ## 🛠 Engineering & Technical Highlights
 
-### 1. Dynamics & Physics Engine
-* **Spherical Mechanics:** Migrated from a flat-moon assumption to a full polar coordinate system $(r, \theta)$ to accurately model orbital mechanics, including centrifugal and Coriolis forces.
-* **Numerical Integration:** Utilizes `scipy.integrate.solve_ivp` with the **Runge-Kutta 4(5)** method (RK45) for adaptive time-stepping and high-precision state propagation.
-* **Mass Properties:** dynamic modeling of fuel depletion based on $I_{sp}$ (311 s) and throttle commands, affecting the vehicle's inertia and acceleration capability over time.
+### 1. Dynamics & Physics Engine (Plant)
 
-### 2. Guidance, Navigation, & Control (GNC)
-* **Polynomial Guidance:** Implements a cubic spline guidance law that calculates required velocity and acceleration to meet boundary conditions (position/velocity) at a target time ($t_{go}$).
-* **Receding Horizon Control:** Features a "shrinking horizon" logic where the guidance solution is re-solved at every time step based on the vehicle's current state deviation, ensuring convergence even with initial errors.
-* **Multi-Phase Logic:** Automatically handles state transitions between the **Braking Phase** (high thrust, orbital velocity reduction) and **Approach Phase** (terminal descent).
+The translational dynamics are modeled in **polar coordinates** around the Moon:
 
-### 3. Actuator & Hardware Constraints
-* **Thrust Vector Control (TVC):** Constraints applied to the descent engine's max thrust (45,000 N) and throttleability.
-* **Slew Rate Limiting:** Models the inertia of the physical lander by limiting the rate of pitch change ($\dot{\alpha}$), simulating the realistic lag of the Reaction Control System (RCS) rather than assuming instantaneous rotation.
+* State: `[r, dr, θ, dθ, m]`
+* Central gravity: $\mu / r^2$
+* Full centrifugal and Coriolis coupling terms
+* Continuous propellant mass depletion:
+  [
+  \dot{m} = -\frac{T}{I_{sp} g_0}
+  ]
+
+This layer represents the **physical truth model** and is intentionally more detailed than the guidance and control layers.
+
+---
+
+### 2. Navigation (LVLH Frame)
+
+The plant state is mapped into a **Local Vertical / Local Horizontal (LVLH)** frame used by guidance and control:
+
+* LVLH state: `[z, dz, x, dx, m]`
+
+  * `z = r − r_moon` → altitude above lunar surface (+up)
+  * `x = r · θ` → downrange distance (+forward)
+* Explicit, documented sign conventions to avoid frame‑mixing errors
+
+This mirrors real spacecraft navigation pipelines, where estimation and control do not operate directly in inertial coordinates.
+
+---
+
+### 3. Guidance
+
+Guidance generates **commanded accelerations**, not thrust:
+
+* Cubic polynomial guidance (receding horizon)
+* Boundary‑condition driven (position and velocity)
+* Outputs:
+
+  * `ddz_cmd` — vertical acceleration command
+  * `ddx_cmd` — horizontal acceleration command
+
+Guidance is **hardware‑agnostic**; feasibility is enforced downstream.
+
+---
+
+### 4. Control (Acceleration → Thrust Allocation)
+
+The controller converts acceleration commands into thrust magnitude and direction:
+
+* Reconstructs local geometry (`r = r_moon + z`)
+* Computes required radial and tangential thrust components
+* Outputs:
+
+  * `T_cmd` — raw thrust request
+  * `α_cmd` — commanded thrust pitch angle
+
+This reflects real flight software, where guidance requests accelerations and control allocates actuators.
+
+---
+
+### 5. Propulsion & Actuator Constraints
+
+#### Descent Propulsion System (DPS) Throttle Logic
+
+The LM Descent Propulsion System is modeled with **Apollo‑inspired throttle behavior**:
+
+* **100% thrust** when demand ≥ 65%
+* **Continuously throttleable** between 10–65%
+* **Minimum throttle floor** at 10% while the engine is on
+* Automatic cutoff at dry mass
+
+This produces realistic “ride‑the‑stop” behavior during aggressive braking.
+
+#### Mass Depletion
+
+* Propellant mass decreases continuously with thrust
+* Engine shuts down at dry mass
+* Prevents nonphysical $T/m \rightarrow \infty$ behavior
+
+---
+
+### 6. Attitude / Gimbal Dynamics
+
+Rather than assuming instantaneous thrust vectoring, the simulation includes a **rate‑limited actuator model**:
+
+* Separate actuator state: `α_actual`
+* Slew‑rate limiting: $|\dot{\alpha}| \le \dot{\alpha}_{max}$
+* Thrust direction passed to the plant uses the **rate‑limited** angle
+
+This models actuator realism without polluting the translational state.
+
+---
 
 ## 📊 Simulation Visualizations
 
@@ -42,48 +127,66 @@ Real-time logging of Pitch ($\alpha$), Thrust (%), Velocity Components, and Prop
 ## 📂 Project Structure
 
 ```bash
-├── README.md
-├── controller.py
-├── environment.py
-├── guidance.py
-├── LICENSE
-├── main.py
-├── navigation.py
-├── simulation.py
-├── test.py
-└── visualization.py
+├── main.py             # Simulation loop and system integration
+├── simulation.py       # Plant dynamics and integration
+├── navigation.py       # Polar → LVLH frame conversion
+├── guidance.py         # Polynomial guidance laws
+├── controller.py       # Thrust and pitch allocation
+├── visualization.py    # Telemetry and plotting utilities
+├── environment.py      # Physical constants and vehicle parameters
+├── test.py             # Standalone tests and trajectory checks
+├── README.md           # Project documentation
+└── LICENSE
 ```
 
+---
+
 ## 🔧 Current Limitations
-* Only the **Braking Phase (P63)** is fully implemented.
-* Time-to-go is currently fixed rather than state-scheduled.
-* Attitude dynamics are simplified (single-angle model).
-* Throttle and attitude rate limits are not implemented.
-* No terrain model or landing leg dynamics.
+
+* Braking phase (P63) only
+* Fixed time‑to‑go (not yet state‑scheduled)
+* Single‑axis attitude model (pitch only)
+* No terrain or landing leg dynamics
+
+---
 
 ## 🔜 Planned Extensions
-* Explicit **High Gate / Low Gate** phase transitions.
-* Tracking control layered on top of guidance references.
-* State-dependent time-to-go scheduling.
-* Improved actuator dynamics and saturation handling.
-* Validation against published Apollo descent data.
+
+* High Gate / Low Gate phase transitions (P64‑style)
+* State‑dependent time‑to‑go scheduling
+* Fuel‑optimal guidance laws
+* Higher‑order integrators (RK4)
+* Monte‑Carlo dispersions
+* Explicit rotational dynamics
+* Validation against published Apollo descent telemetry
+
+---
 
 ## 📚 References & Data Sources
 
-This simulation relies on historical flight data and technical specifications from the following official documentation:
+1. **NASA Manned Spacecraft Center**, *Apollo Lunar Descent and Ascent Trajectories*, Nov 1970
+   [https://ntrs.nasa.gov/api/citations/19700024568/downloads/19700024568.pdf](https://ntrs.nasa.gov/api/citations/19700024568/downloads/19700024568.pdf)
 
-1.  **NASA Manned Spacecraft Center**, *"Apollo 11 Mission Report"* (MSC-00171), Nov 1970.  
-    [NASA Technical Reports Server (NTRS)](https://ntrs.nasa.gov/api/citations/19700024568/downloads/19700024568.pdf)  
-    *Primary source for trajectory timeline, event times (P63/P64 transition), and propellant usage.*
+2. **NASA Manned Spacecraft Center**, *Apollo Experience Report - Mission Planning for Lunar Module Descent and Ascent*, Jun 1972 [https://ntrs.nasa.gov/api/citations/19720018205/downloads/19720018205.pdf](https://ntrs.nasa.gov/api/citations/19720018205/downloads/19720018205.pdf)
 
-2.  **NASA Safety & Mission Assurance**, *"Apollo 11 Mission Report"* (Significant Incidents Context).  
-    [Available PDF](https://sma.nasa.gov/SignificantIncidents/assets/a11_missionreport.pdf)  
-    *Used for verifying safety constraints and abort boundaries.*
+2. **NASA Safety & Mission Assurance**, *Apollo 11 Mission Report (Significant Incidents)*
+   [https://sma.nasa.gov/SignificantIncidents/assets/a11_missionreport.pdf](https://sma.nasa.gov/SignificantIncidents/assets/a11_missionreport.pdf)
 
-3.  **Aircraft Engine Historical Society**, *"The Lunar Module Descent Engine (LMDE)"*.  
-    [EngineHistory.org](https://www.enginehistory.org/Rockets/RPE09.46/RPE09.46.shtml)  
-    *Source for TRW Descent Engine performance data ($I_{sp}$, Thrust curves, and throttling limits).*
+3. **Aircraft Engine Historical Society**, *The Lunar Module Descent Engine (LMDE)*
+   [https://www.enginehistory.org/Rockets/RPE09.46/RPE09.46.shtml](https://www.enginehistory.org/Rockets/RPE09.46/RPE09.46.shtml)
 
-4.  **Wikipedia Contributors**, *"Apollo Lunar Module"* & *"Descent Propulsion System"*.  
-    [Apollo Lunar Module](https://en.wikipedia.org/wiki/Apollo_Lunar_Module) | [DPS](https://en.wikipedia.org/wiki/Descent_propulsion_system)  
-    *General physical properties (Dry Mass, Tank Capacities, Dimensions).*
+4. **Wikipedia Contributors**, *Apollo Lunar Module* / *Descent Propulsion System*
+   [https://en.wikipedia.org/wiki/Apollo_Lunar_Module](https://en.wikipedia.org/wiki/Apollo_Lunar_Module)
+
+---
+
+## 👤 Author
+
+**Eliott Hendryx‑Parker**
+Aerospace Engineering Student | GNC & Flight Dynamics
+
+---
+
+## ⚠️ Disclaimer
+
+This project is **educational** and not flight‑certified. Numerical values are representative and intended for learning and demonstration purposes only.
