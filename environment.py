@@ -8,7 +8,8 @@ mu = G * m_moon  # m^3/s^2
 # --- Vehicle Constants ---
 T_max = 45_000  # N
 Isp = 311  # s
-m0 = 15_240  # kg
-m_empty = 4_280  # kg
+m_empty = 7_201  # kg
+m_prop0 = 7_899  # kg
+m0 = m_prop0 + m_empty  # kg
 alpha0 = 0  # rad
 dalpha_max = 0.10472  # rad/s

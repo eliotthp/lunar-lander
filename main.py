@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 r_moon = env.r_moon
 mu = env.mu
 m0 = env.m0
+m_empty = env.m_empty
 
 # --- Initial Conditions (From Apollo 11 Event B) ---
 S0 = [14_878 + r_moon, 0, 0, np.sqrt(mu / (r_moon + 14_878)) / (r_moon + 14_878), m0]
@@ -81,6 +82,6 @@ vis.telemetry(
     T_cmd_hist,
     alpha_ctrl_hist,
     T_ctrl_hist,
-    S_hist[:, -1],
+    S_hist[:, -1] - m_empty,
 )
 plt.show()
