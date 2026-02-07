@@ -10,3 +10,5 @@ T_max = 45_000  # N
 Isp = 311  # s
 m0 = 15_240  # kg
 m_empty = 4_280  # kg
+alpha0 = 0  # rad
+dalpha_max = 0.10472  # rad/s

@@ -7,6 +7,7 @@ r_moon = env.r_moon
 mu = env.mu
 m_empty = env.m_empty
 T_max = env.T_max
+dalpha_max = env.dalpha_max
 
 
 def control(t, S, targets):
@@ -61,3 +62,25 @@ def thrust_limiter(T_cmd):
     else:
         T_ctrl = T_max * 0.1
     return T_ctrl
+
+
+def slew_limiter(dt, alpha_cmd, alpha_ctrl):
+    """
+    Limits the rate of change of the pitch angle to simulate gimbal/slew rate limits.
+
+    Args:
+        dt (float): Time step (s).
+        alpha_cmd (float): The target pitch angle (rad) from the controller.
+        alpha_ctrl (float): The current pitch angle (rad) from the previous step.
+
+    Returns:
+        alpha_ctrl (float): The new pitch angle (rad) after applying the slew rate limit.
+    """
+    dalpha = -(alpha_ctrl - alpha_cmd)
+    delta_alpha_max = dalpha_max * dt
+    # Apply slew rate limit
+    if abs(dalpha) > delta_alpha_max:
+        alpha_ctrl += np.sign(dalpha) * delta_alpha_max
+    else:
+        alpha_ctrl = alpha_cmd
+    return alpha_ctrl

@@ -14,7 +14,7 @@ def polar_to_LVLH(S):
         S (list): Current state vector [r, dr, theta, dtheta, m].
 
     Returns:
-        LVLH (list): LVLH state vector [z, dz, x, dx].
+        LVLH (list): LVLH state vector [z, dz, x, dx, m].
     """
     # Unpack state
     r, dr, theta, dtheta, m = S
