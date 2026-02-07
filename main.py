@@ -68,4 +68,3 @@ vis.telemetry(
     thrust_hist,
     S_hist[:, -1],
 )
-plt.show()

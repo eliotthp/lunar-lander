@@ -17,13 +17,14 @@ def trajectory(theta, alt):
         alt (ndarray): Array of altitudes (meters).
     """
     plt.plot(theta, alt, label="Trajectory")
-    plt.xlabel("Theta ($\degree$)")
+    plt.xlabel(r"Theta ($\degree$)")
     plt.ylabel("Altitude (m)")
     plt.gca().invert_xaxis()
     plt.title("Trajectory of Lunar Module")
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
+    plt.savefig("figs/trajectory.png")
 
 
 def telemetry(
@@ -59,7 +60,7 @@ def telemetry(
     axs[0, 1].plot(t, alpha_actual, "b", label="Pitch Actual")
     axs[0, 1].set_title("Pitch Angle: Command vs Actual")
     axs[0, 1].set_xlabel("Time (s)")
-    axs[0, 1].set_ylabel("Angle ($\degree$)")
+    axs[0, 1].set_ylabel(r"Angle ($\degree$)")
     axs[0, 1].legend()
     axs[0, 1].grid(True)
 
@@ -79,7 +80,9 @@ def telemetry(
     axs[1, 1].set_ylabel("Mass (kg)")
     axs[1, 1].legend()
     axs[1, 1].grid(True)
+
     plt.tight_layout()
+    plt.savefig("figs/telemetry.png")
 
 
 def end_state_metrics(t, final_state):

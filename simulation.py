@@ -3,6 +3,8 @@ import environment as env
 
 # --- Constants & Environment ---
 mu = env.mu
+Isp = env.Isp
+G_earth = env.G_earth
 
 
 def get_derivatives(S, C):
@@ -22,8 +24,10 @@ def get_derivatives(S, C):
     # Equations of Motion
     ddr = T / m * np.cos(alpha) - mu / r**2 + r * dtheta**2
     ddtheta = 1 / r * ((T / m) * np.sin(alpha) - 2 * dr * dtheta)
+    # Propellant Change
+    dm = -T / (Isp * G_earth)
 
-    return [ddr, ddtheta]
+    return [ddr, ddtheta, dm]
 
 
 def update_state(dt, S, dS):
@@ -40,13 +44,15 @@ def update_state(dt, S, dS):
     """
     # Unpack states
     r, dr, theta, dtheta, m = S
-    ddr, ddtheta = dS
+    ddr, ddtheta, dm = dS
     # Update velocities
     dr += ddr * dt
     dtheta += ddtheta * dt
     # Update positions
     r += dr * dt
     theta += dtheta * dt
+    # Update mass
+    m += dm * dt
 
     return [r, dr, theta, dtheta, m]
 
