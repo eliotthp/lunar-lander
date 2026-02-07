@@ -84,4 +84,5 @@ vis.telemetry(
     T_ctrl_hist,
     S_hist[:, -1] - m_empty,
 )
+vis.end_state_metrics(t_hist, S_hist[-1])
 plt.show()

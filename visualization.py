@@ -89,28 +89,34 @@ def end_state_metrics(t, final_state):
 
     Args:
         t (ndarray): Time array from the simulation.
-        final_state (list): The final state vector [r, dr, theta, dtheta, m, alpha].
+        final_state (list): The final state vector [zf, dzf, xf, dxf, mf].
     """
     # Unpack final state
-    r_final, dr_final, theta_final, dtheta_final, m_final, alpha_final = final_state
+    zf, dzf, xf, dxf, mf = final_state
     # Constants
     Isp = env.Isp
     G_earth = env.G_earth
     m0 = env.m0
     # Find impact velocity
-    impact_velocity = np.sqrt(dr_final**2 + (r_final * dtheta_final) ** 2)
+    impact_velocity = np.sqrt(dzf**2 + dxf**2)
     # Find remaining prop
-    remaining_propellant = m_final - m_empty
+    remaining_propellant = mf - m_empty
     # Calculate delta-V
-    delta_v = Isp * G_earth * np.log(m0 / m_final)
+    delta_v = Isp * G_earth * np.log(m0 / mf)
 
-    print("-" * 30)
-    print("MISSION END STATE METRICS")
-    print("-" * 30)
-    print(f"Time of Flight:    {t[-1]:.2f} s")
-    print(f"Impact Velocity:   {impact_velocity:.2f} m/s")
-    print(f"Delta-V:           {delta_v:.2f} m/s")
-    print(f"Vertical Vel:      {dr_final:.2f} m/s")
-    print(f"Horizontal Vel:    {r_final * dtheta_final:.2f} m/s")
-    print(f"Remaining Fuel:    {remaining_propellant:.2f} kg")
-    print("-" * 30)
+    # Prepare the data
+    metrics = {
+        "Time of Flight": f"{t[-1]:.2f} s",
+        "Impact Velocity": f"{impact_velocity:.2f} m/s",
+        "Delta-V": f"{delta_v:.2f} m/s",
+        "Vertical Vel": f"{dzf:.2f} m/s",
+        "Horizontal Vel": f"{dxf:.2f} m/s",
+        "Remaining Fuel": f"{remaining_propellant:.2f} kg",
+    }
+    # Write to file
+    with open("data/MISSION_LOG.md", "w", encoding="utf-8") as f:  # Added encoding here
+        f.write("### 🚀 Mission End State Metrics\n\n")
+        f.write("| Metric | Value |\n")
+        f.write("| :--- | :--- |\n")
+        for key, value in metrics.items():
+            f.write(f"| **{key}** | `{value}` |\n")
