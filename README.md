@@ -115,7 +115,7 @@ This models actuator realism without polluting the translational state.
 
 ---
 
-## 📊 Simulation Visualizations
+## 📊 Simulation Visualizations & Data Display
 
 ### **Trajectory Plot:**  
 ![Trajectory Plot](figs/trajectory.png)  
@@ -123,6 +123,8 @@ Tracks altitude vs. downrange distance relative to the landing site.
 ### **Telemetry Plots:**  
 ![Telemetry Plots](figs/telemetry.png)  
 Real-time logging of Pitch ($\alpha$), Thrust (%), Velocity Components, and Propellant Mass.
+### **Mission Log:**
+The latest lunar lander telemetry and mission metrics are available in the [Mission Log](./data/MISSION_LOG.md).
 
 ## 📂 Project Structure
 
