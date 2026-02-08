@@ -6,6 +6,7 @@ import environment as env
 import simulation as sim
 import visualization as vis
 import matplotlib.pyplot as plt
+import sensor as sns
 
 # --- Constants & Environment ---
 r_moon = env.r_moon
@@ -22,20 +23,23 @@ t = 0  # Simulation time
 dt = 1  # Loop every second
 h = dt / 100  # Plant run for accuracy
 
-# Initialize
-S = S0
-LVLH = nav.polar_to_LVLH(S0)
-alpha_ctrl = -np.pi / 2
-
 # History
 S_hist = []
 LVLH_hist = []
+LVLH_nav_hist = []
 t_hist = []
 alpha_cmd_hist = []
 alpha_ctrl_hist = []
 T_cmd_hist = []
 T_ctrl_hist = []
 t_max = 714
+
+# Initialize
+S = S0
+LVLH = nav.polar_to_LVLH(S0)
+alpha_ctrl = -np.pi / 2
+# Initialize Sensors
+altimeter = sns.altimeter(0.5, 67)
 
 # --- Main Loop ---
 while landing:
@@ -45,13 +49,15 @@ while landing:
 
     # --- Navigation ---
     LVLH = nav.polar_to_LVLH(S)
+    LVLH_nav = LVLH.copy()
+    LVLH_nav[0] = altimeter.measure(LVLH[0])
 
     # --- Guidance ---
-    _, _, ddz_cmd = gd.poly_guidance(0, [LVLH[0], 0, LVLH[1], 0], t_go)
-    _, _, ddx_cmd = gd.poly_guidance(0, [LVLH[2], 480_000, LVLH[3], 0], t_go)
+    _, _, ddz_cmd = gd.poly_guidance(0, [LVLH_nav[0], 0, LVLH_nav[1], 0], t_go)
+    _, _, ddx_cmd = gd.poly_guidance(0, [LVLH_nav[2], 480_000, LVLH_nav[3], 0], t_go)
 
     # --- Control ---
-    T_cmd, alpha_cmd = ct.control(t, LVLH, [ddz_cmd, ddx_cmd])
+    T_cmd, alpha_cmd = ct.control(t, LVLH_nav, [ddz_cmd, ddx_cmd])
     T_ctrl = ct.thrust_limiter(T_cmd)
     alpha_ctrl = ct.slew_limiter(dt, alpha_cmd, alpha_ctrl)
 
@@ -61,6 +67,7 @@ while landing:
     # --- History ---
     S_hist.append(S)
     LVLH_hist.append(LVLH)
+    LVLH_nav_hist.append(LVLH_nav)
     t_hist.append(t)
     alpha_cmd_hist.append(alpha_cmd)
     alpha_ctrl_hist.append(alpha_ctrl)
@@ -71,9 +78,20 @@ while landing:
 # --- Post-Simulation Analysis ---
 S_hist = np.array(S_hist)
 LVLH_hist = np.array(LVLH_hist)
+LVLH_nav_hist = np.array(LVLH_nav_hist)
 t_hist = np.array(t_hist)
 
 # --- Visualization ---
+plt.close("all")
+plt.plot(t_hist, LVLH_hist[:, 0])
+plt.plot(t_hist, LVLH_nav_hist[:, 0])
+plt.xlabel("Time (s)")
+plt.ylabel("Altitude (m)")
+plt.title("Altitude vs Time")
+plt.legend(["True Altitude", "Estimated Altitude"])
+plt.grid(True)
+plt.show()
+
 vis.trajectory(S_hist[:, 2], LVLH_hist[:, 0])
 vis.telemetry(
     t_hist,
