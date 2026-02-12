@@ -20,12 +20,12 @@ class altimeter:
 class filter:
     """Implements signal processing filters for sensor data smoothing."""
 
-    def __init__(self, dt, tau):
+    def __init__(self, dt, tau, x0=0):
         # dt: sampling period, tau: filter time constant
-        self.dt = dt
-        self.tau = tau
-        self.alpha = self.dt / (self.tau + self.dt)
+        self.alpha = dt / (tau + dt)
+        self.x_prev = x0
 
-    def low_pass_filter(x, alpha):
+    def apply(self, x_meas):
         # Discrete-time first-order low-pass filter
-        return alpha * x + (1 - alpha) * x
+        self.x_prev = self.alpha * x_meas + (1 - self.alpha) * self.x_prev
+        return self.x_prev
