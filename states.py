@@ -17,3 +17,9 @@ class LVLHState:
     x: float
     dx: float
     m: float
+
+
+@dataclass
+class ControlState:
+    T: float
+    alpha: float

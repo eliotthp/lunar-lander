@@ -1,4 +1,4 @@
-from state import LVLHState, PolarState
+from states import LVLHState, PolarState
 import numpy as np
 
 

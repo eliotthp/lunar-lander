@@ -1,5 +1,5 @@
 import numpy as np
-from state import PolarState
+from states import PolarState
 
 
 class Simulation:
