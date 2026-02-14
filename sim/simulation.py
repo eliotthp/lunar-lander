@@ -1,84 +1,64 @@
 import numpy as np
-import config as env
-
-# --- Constants & Environment ---
-mu = env.mu
-Isp = env.Isp
-G_earth = env.G_earth
-m_empty = env.m_empty
 
 
-def get_derivatives(S, C):
-    """
-    Calculates the second-order derivatives of the state variables.
+class Simulation:
+    def __init__(self, config, S0):
+        self.cfg = config
+        self.state = S0
 
-    Args:
-        S (list): Current state vector [r, dr, theta, dtheta, m].
-        C (list): Control inputs [T, alpha] (Thrust and Pitch).
+    def step(self, control, dt):
+        dstate = self._get_derivatives(self.state, control)
+        self.state = self._euler(self.state, dstate, dt)
+        return self.state
 
-    Returns:
-        list: Derivatives [ddr, ddtheta].
-    """
-    # Unpack state
-    r, dr, theta, dtheta, m = S
-    T, alpha = C
+    def _get_derivatives(self, S, C):
+        """
+        Calculates the second-order derivatives of the state variables.
 
-    # Cut thrust if propellant is exhausted
-    if m - m_empty <= 0:
-        T = 0
-    # Equations of Motion in polar coordinates
-    ddr = T / m * np.cos(alpha) - mu / r**2 + r * dtheta**2
-    ddtheta = 1 / r * ((T / m) * np.sin(alpha) - 2 * dr * dtheta)
-    # Mass flow rate based on ideal rocket equation
-    dm = -T / (Isp * G_earth)
+        Args:
+            S (list): Current state vector [r, dr, theta, dtheta, m].
+            C (list): Control inputs [T, alpha] (Thrust and Pitch).
 
-    return [ddr, ddtheta, dm]
+        Returns:
+            list: Derivatives [ddr, ddtheta].
+        """
+        # Unpack state
+        r, dr, theta, dtheta, m = S
+        T, alpha = C
 
+        # Cut thrust if propellant is exhausted
+        if m - self.cfg.m_empty <= 0:
+            T = 0
+        # Equations of Motion in polar coordinates
+        ddr = T / m * np.cos(alpha) - self.cfg.mu / r**2 + r * dtheta**2
+        ddtheta = 1 / r * ((T / m) * np.sin(alpha) - 2 * dr * dtheta)
+        # Mass flow rate based on ideal rocket equation
+        dm = -T / (self.cfg.Isp * self.cfg.G_earth)
 
-def update_state(dt, S, dS):
-    """
-    Updates the state vector using Euler integration.
+        return [ddr, ddtheta, dm]
 
-    Args:
-        dt (float): Time step for the update.
-        S (list): Current state vector [r, dr, theta, dtheta, m].
-        dS (list): Derivatives [ddr, ddtheta].
+    def _euler(self, S, dS, dt):
+        """
+        Updates the state vector using Euler integration.
 
-    Returns:
-        list: Updated state vector.
-    """
-    # Unpack states
-    r, dr, theta, dtheta, m = S
-    ddr, ddtheta, dm = dS
-    # Update velocities
-    dr += ddr * dt
-    dtheta += ddtheta * dt
-    # Update positions
-    r += dr * dt
-    theta += dtheta * dt
-    # Update mass
-    m += dm * dt
+        Args:
+            dt (float): Time step for the update.
+            S (list): Current state vector [r, dr, theta, dtheta, m].
+            dS (list): Derivatives [ddr, ddtheta].
 
-    return [r, dr, theta, dtheta, m]
+        Returns:
+            list: Updated state vector.
+        """
+        # Unpack states
+        r, dr, theta, dtheta, m = S
+        ddr, ddtheta, dm = dS
+        # Update velocities
+        dr += ddr * dt
+        dtheta += ddtheta * dt
+        # Update positions
+        r += dr * dt
+        theta += dtheta * dt
+        # Update mass
+        m += dm * dt
 
-
-def propagate(h, dt, S, C):
-    """
-    Propagates the state forward in time over a duration dt using a smaller step h.
-
-    Args:
-        h (float): Integration time step.
-        dt (float): Total propagation duration.
-        S (list): Initial state vector.
-        C (list): Constant control inputs for this duration.
-
-    Returns:
-        list: Final state vector after duration dt.
-    """
-    # Calculate number of integration steps ensuring n is 100
-    n = int(round(dt / h))
-    for _ in range(n):
-        dS = get_derivatives(S, C)
-        S = update_state(h, S, dS)
-
-    return S
+        return [r, dr, theta, dtheta, m]
