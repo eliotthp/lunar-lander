@@ -27,16 +27,6 @@ class Navigation:
         return z_meas
 
     def _polar_to_LVLH(self, polar_state):
-        """
-        Converts polar coordinates to Local Vertical Local Horizontal (LVLH) coordinates.
-        With z (altitude, +up), and x (horizontal distance, +downrange)
-
-        Args:
-            state (list): Current state vector [r, dr, theta, dtheta, m].
-
-        Returns:
-            LVLH (list): LVLH state vector [z, dz, x, dx, m].
-        """
         # Project to LVLH: z is altitude above surface, x is arc-length downrange
         z = polar_state.r - self.cfg.r_moon  # Altitude (m)
         dz = polar_state.dr  # Vertical velocity (m/s)

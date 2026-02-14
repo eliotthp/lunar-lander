@@ -21,5 +21,7 @@ class LVLHState:
 
 @dataclass
 class ControlState:
-    T: float
-    alpha: float
+    T_cmd: float
+    alpha_cmd: float
+    T_ctrl: float
+    alpha_ctrl: float

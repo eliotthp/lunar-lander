@@ -7,7 +7,7 @@ class Simulation:
         self.cfg = config
         self.state = inital_state
 
-    def step(self, control, dt):
+    def step(self, dt, control):
         dstate = self._get_derivatives(control)
         self._euler(dstate, dt)
 

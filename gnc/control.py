@@ -1,93 +1,61 @@
+from states import LVLHState, ControlState
 import numpy as np
-import config as env
-
-# --- Constants & Environment ---
-G_earth = env.G_earth
-r_moon = env.r_moon
-mu = env.mu
-m_empty = env.m_empty
-T_max = env.T_max
-dalpha_max = env.dalpha_max
 
 
-def control(t, S, targets):
-    """
-    Calculates the required thrust and pitch angle to achieve commanded accelerations.
-    With z (altitude, +up), and x (horizontal distance, +downrange)
+class Control:
+    def __init__(self, config, control_state: ControlState):
+        self.cfg = config
+        self.control_state = control_state
 
-    Args:
-        t (float): Current simulation time.
-        S (list): Current LVLH state vector [z, dz, x, dx, m].
-        targets (list): Commanded accelerations [ddz_cmd, ddx_cmd].
+    def step(self, dt, nav_state: LVLHState, guid_accel):
+        # Unpack guidance acceleration targets
+        ddz_cmd, ddx_cmd = guid_accel
+        # Calculate distance from moon center and angular velocity
+        r = self.cfg.r_moon + nav_state.z
+        dtheta = nav_state.dx / r
+        # Determine required thrust components in the LVLH frame
+        # Compensates for gravity and centrifugal/coriolis effects
+        Tz = ddz_cmd + (self.cfg.mu / r**2) - (r * dtheta**2)
+        Tx = ddx_cmd + (2 * nav_state.dz * dtheta)
 
-    Returns:
-        tuple: (T_cmd, alpha_cmd) Commanded thrust (N) and pitch angle (rad).
-    """
-    # Unpack states
-    z, dz, x, dx, m = S
-    ddz_cmd, ddx_cmd = targets
+        self.control_state.alpha_cmd = np.arctan2(Tx, Tz)
+        self.control_state.T_cmd = nav_state.m * np.sqrt(Tx**2 + Tz**2)
 
-    # Calculate distance from moon center and angular velocity
-    r = r_moon + z
-    dtheta = dx / r
+        # Thrust limiter
+        self._thrust_limiter()
 
-    # Determine required thrust components in the LVLH frame
-    # Compensates for gravity and centrifugal/coriolis effects
-    Tz = ddz_cmd + (mu / r**2) - (r * dtheta**2)
-    Tx = ddx_cmd + (2 * dz * dtheta)
+        # Slew rate limiter
+        self._slew_limiter(dt)
 
-    # Convert required force components to vehicle thrust and pitch angle
-    if m > m_empty:
-        alpha_cmd = np.arctan2(Tx, Tz)
-        T_cmd = m * np.sqrt(Tx**2 + Tz**2)
-    else:
-        alpha_cmd = 0
-        T_cmd = 0
+        # Propellant limit
+        self._propellant_limit(nav_state.m)
 
-    return T_cmd, alpha_cmd
+        return self.control_state
 
+    def _propellant_limit(self, m):
+        if m > self.cfg.m_empty:
+            pass
+        else:
+            self.control_state.T_ctrl = 0
+            self.control_state.alpha_ctrl = 0
 
-def thrust_limiter(T_cmd):
-    """
-    Limits the commanded thrust based on the Apollo Descent Propulsion System (DPS)
-    constraints: either fixed at 100% or throttleable between 10% and 65%.
+    def _thrust_limiter(self):
+        throttle = self.control_state.T_cmd / self.cfg.T_max * 100  # Throttle (%)
+        # Apollo DPS cannot throttle between 65% and 100% reliably
+        if throttle >= 65:
+            self.control_state.T_ctrl = self.cfg.T_max
+        elif throttle >= 10:
+            self.control_state.T_ctrl = self.cfg.T_max * throttle / 100
+        else:
+            self.control_state.T_ctrl = self.cfg.T_max * 0.1
 
-    Args:
-        T_cmd (float): The raw commanded thrust from the controller.
+    def _slew_limiter(self, dt):
+        # Calculate the desired change in angle
+        dalpha = -(self.control_state.alpha_ctrl - self.control_state.alpha_cmd)
+        delta_alpha_max = self.cfg.dalpha_max * dt
 
-    Returns:
-        T_ctrl (float): The actual thrust (N) after applying hardware limits.
-    """
-    throttle = T_cmd / T_max * 100  # Throttle (%)
-    # Apollo DPS cannot throttle between 65% and 100% reliably
-    if throttle >= 65:
-        T_ctrl = T_max
-    elif throttle >= 10:
-        T_ctrl = T_max * throttle / 100
-    else:
-        T_ctrl = T_max * 0.1
-    return T_ctrl
-
-
-def slew_limiter(dt, alpha_cmd, alpha_ctrl):
-    """
-    Limits the rate of change of the pitch angle to simulate gimbal/slew rate limits.
-
-    Args:
-        dt (float): Time step (s).
-        alpha_cmd (float): The target pitch angle (rad) from the controller.
-        alpha_ctrl (float): The current pitch angle (rad) from the previous step.
-
-    Returns:
-        alpha_ctrl (float): The new pitch angle (rad) after applying the slew rate limit.
-    """
-    # Calculate the desired change in angle
-    dalpha = -(alpha_ctrl - alpha_cmd)
-    delta_alpha_max = dalpha_max * dt
-
-    # Apply slew rate limit
-    if abs(dalpha) > delta_alpha_max:
-        alpha_ctrl += np.sign(dalpha) * delta_alpha_max
-    else:
-        alpha_ctrl = alpha_cmd
-    return alpha_ctrl
+        # Apply slew rate limit
+        if abs(dalpha) > delta_alpha_max:
+            self.control_state.alpha_ctrl += np.sign(dalpha) * delta_alpha_max
+        else:
+            self.control_state.alpha_ctrl = self.control_state.alpha_cmd
